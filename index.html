@@ -113,7 +113,7 @@
         text_color: "#000000",
         primary_action_color: "#0fa404",
         secondary_action_color: "#0ea5e9",
-        app_title: "🧾 แบ่งบิล",
+        app_title: "🧾 แบ่งเงินอย่างยุติธรรม",
         app_subtitle: "คำนวณการแบ่งเงินแบบง่ายดาย แยกรายชื่อและรายการอาหารที่ชัดเจน",
         total_amount_label: "💵 จำนวนเงินทั้งหมด (บาท)",
         people_section_title: "👥 รายชื่อคนในกลุ่ม",
@@ -511,16 +511,14 @@
 
       // บันทึกข้อมูลช่องทางชำระเงิน (แสดง Toast และกลับหน้าหลัก)
       function savePaymentInfo() {
-        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
-        showToast('บันทึกข้อมูลช่องทางชำระเงินแล้ว ✓', config.primary_action_color || defaultConfig.primary_action_color);
+        showToast('บันทึกข้อมูลช่องทางชำระเงินแล้ว ✓', '#077204');
         currentView = 'main';
         renderApp();
       }
 
       // บันทึกข้อมูลช่องทางติดต่อ (แสดง Toast และกลับหน้าหลัก)
       function saveContactInfo() {
-        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
-        showToast('บันทึกข้อมูลช่องทางติดต่อแล้ว ✓', config.secondary_action_color || defaultConfig.secondary_action_color);
+        showToast('บันทึกข้อมูลช่องทางติดต่อแล้ว ✓', '#077204');
         currentView = 'main';
         renderApp();
       }
@@ -554,8 +552,8 @@
                     border: none;
                     border-radius: 50%;
                     cursor: pointer;
-                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;  /* ทำลูกศรให้ใหญ่และหนาขึ้น */
-                    font-weight: 900;  /* ทำตัวหนาขึ้น */
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
+                    font-weight: 900;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -844,8 +842,7 @@
         items = [];
         totalAmount = 0;
         renderMainView();
-        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
-        showToast('รีเซ็ทข้อมูลทั้งหมดแล้ว ✓', config.secondary_action_color || defaultConfig.secondary_action_color);
+        showToast('รีเซ็ทข้อมูลทั้งหมดแล้ว ✓', '#077204');
       }
 
       // -----------------------------
@@ -869,7 +866,7 @@
                     border: none;
                     border-radius: 50%;
                     cursor: pointer;
-                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;  /* ลูกศรหนา/ใหญ่ขึ้น */
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
                     font-weight: 900;
                     display: flex;
                     align-items: center;
@@ -904,7 +901,7 @@
                   style="
                     flex: 1;
                     padding: 14px;
-                    background: #077204;   /* ปุ่มยกเลิก = สี #077204 */
+                    background: #077204;
                     color: white;
                     border: none;
                     border-radius: 10px;
@@ -918,7 +915,7 @@
                   style="
                     flex: 1;
                     padding: 14px;
-                    background: #0a9400;   /* ปุ่มบันทึก = สี #0a9400 */
+                    background: #2eb512;
                     color: white;
                     border: none;
                     border-radius: 10px;
@@ -955,7 +952,7 @@
                     border: none;
                     border-radius: 50%;
                     cursor: pointer;
-                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;  /* ลูกศรหนา/ใหญ่ขึ้น */
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
                     font-weight: 900;
                     display: flex;
                     align-items: center;
@@ -980,7 +977,7 @@
               <!-- ปุ่มเพิ่มช่องทางติดต่อ -->
               <button
                 onclick="addContactMethod()"
-                style="width: 100%; padding: 14px; background: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border: 2px dashed ${config.secondary_action_color || defaultConfig.secondary_action_color}; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; margin-bottom: 24px;"
+                style="width: 100%; padding: 14px; background: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border: 2px dashed #2eb512; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; margin-bottom: 24px;"
               >➕ เพิ่มช่องทางติดต่อ</button>
 
               <!-- ปุ่ม ยกเลิก / บันทึก ด้านล่าง -->
@@ -990,7 +987,7 @@
                   style="
                     flex: 1;
                     padding: 14px;
-                    background: #077204;   /* ปุ่มยกเลิก = สี #077204 */
+                    background: #077204;
                     color: white;
                     border: none;
                     border-radius: 10px;
@@ -1004,7 +1001,7 @@
                   style="
                     flex: 1;
                     padding: 14px;
-                    background: #0a9400;   /* ปุ่มบันทึก = สี #0a9400 */
+                    background: #2eb512;
                     color: white;
                     border: none;
                     border-radius: 10px;
@@ -1041,7 +1038,7 @@
                     border: none;
                     border-radius: 50%;
                     cursor: pointer;
-                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;  /* ลูกศรหนา/ใหญ่ขึ้น */
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
                     font-weight: 900;
                     display: flex;
                     align-items: center;
@@ -1056,7 +1053,7 @@
               <!-- ส่วนอธิบายภาพรวมของคู่มือ -->
               <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
                 <p style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.95}px; line-height: 1.8; margin: 0;">
-                  คู่มือนี้อธิบายขั้นตอนการใช้งานเว็บ <strong>“แบ่งบิล”</strong> ตั้งแต่เริ่มต้นจนถึงสรุปยอดที่แต่ละคนต้องจ่าย เหมาะสำหรับเวลาไปกินข้าว/เที่ยวกับเพื่อนแล้วอยากหารเงินแบบยุติธรรม
+                  คู่มือนี้อธิบายขั้นตอนการใช้งานเว็บ <strong>“แบ่งเงินอย่างยุติธรรม”</strong> ตั้งแต่เริ่มต้นจนถึงสรุปยอดที่แต่ละคนต้องจ่าย เหมาะสำหรับเวลาไปกินข้าว/เที่ยวกับเพื่อนแล้วอยากหารเงินแบบยุติธรรม
                 </p>
               </div>
 
@@ -1381,7 +1378,7 @@
           viewSummaryBtn.textContent = config.view_summary_button || defaultConfig.view_summary_button;
           viewSummaryBtn.style.background = 'white';
           viewSummaryBtn.style.color = config.text_color || defaultConfig.text_color;
-          viewSummaryBtn.style.border = `2px solid #cccccc`;   // ปรับขอบปุ่มดูหน้าสรุปให้เป็น #cccccc
+          viewSummaryBtn.style.border = `2px solid #cccccc`;
           viewSummaryBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
         }
 
@@ -1389,21 +1386,21 @@
         if (managePaymentBtn) {
           managePaymentBtn.style.background = 'white';
           managePaymentBtn.style.color = config.text_color || defaultConfig.text_color;
-          managePaymentBtn.style.border = `2px solid #cccccc`;  // ปรับขอบปุ่มจัดการช่องทางชำระเงินให้เป็น #cccccc
+          managePaymentBtn.style.border = `2px solid #cccccc`;
         }
 
         const manageContactBtn = document.getElementById('manage-contact-btn');
         if (manageContactBtn) {
           manageContactBtn.style.background = 'white';
           manageContactBtn.style.color = config.text_color || defaultConfig.text_color;
-          manageContactBtn.style.border = `2px solid #cccccc`;  // ปรับขอบปุ่มจัดการช่องทางติดต่อให้เป็น #cccccc
+          manageContactBtn.style.border = `2px solid #cccccc`;
         }
 
         const guideBtn = document.getElementById('guide-btn');
         if (guideBtn) {
           guideBtn.style.background = 'white';
           guideBtn.style.color = config.text_color || defaultConfig.text_color;
-          guideBtn.style.border = `2px solid #cccccc`;          // ปรับขอบปุ่มคู่มือการใช้งานให้เป็น #cccccc
+          guideBtn.style.border = `2px solid #cccccc`;
           guideBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
         }
 
@@ -1425,7 +1422,7 @@
         if (totalInput) {
           totalInput.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 1.125}px`;
           totalInput.style.color = config.text_color || defaultConfig.text_color;
-          totalInput.style.border = '3px solid #cccccc';   // ขอบช่องใส่จำนวนเงินเป็น #cccccc
+          totalInput.style.border = '3px solid #cccccc';
         }
 
         renderPeople();
@@ -1500,7 +1497,7 @@
                     padding: 12px 16px;
                     background: white;
                     color: ${config.text_color || defaultConfig.text_color};
-                    border: 2px solid #cccccc;            /* ขอบปุ่ม = #cccccc */
+                    border: 2px solid #cccccc;
                     border-radius: 10px;
                     cursor: pointer;
                     font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
@@ -1519,7 +1516,7 @@
                     padding: 12px 16px;
                     background: white;
                     color: ${config.text_color || defaultConfig.text_color};
-                    border: 2px solid #cccccc;             /* ขอบปุ่ม = #cccccc */
+                    border: 2px solid #cccccc;
                     border-radius: 10px;
                     cursor: pointer;
                     font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
@@ -1538,7 +1535,7 @@
                     padding: 12px 16px;
                     background: white;
                     color: ${config.text_color || defaultConfig.text_color};
-                    border: 2px solid #cccccc;             /* ขอบปุ่ม = #cccccc */
+                    border: 2px solid #cccccc;
                     border-radius: 10px;
                     cursor: pointer;
                     font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
@@ -1557,7 +1554,7 @@
                     padding: 12px 16px;
                     background: white;
                     color: ${config.text_color || defaultConfig.text_color};
-                    border: 2px solid #cccccc;             /* ขอบปุ่ม = #cccccc */
+                    border: 2px solid #cccccc;
                     border-radius: 10px;
                     cursor: pointer;
                     font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
@@ -1580,7 +1577,7 @@
                   style="
                     width: 100%;
                     padding: 14px 18px;
-                    border: 3px solid #cccccc;          /* ขอบช่องใส่จำนวนเงิน = #cccccc */
+                    border: 3px solid #cccccc;
                     border-radius: 10px;
                     font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px;
                     color: ${config.text_color || defaultConfig.text_color};
