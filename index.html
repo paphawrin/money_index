@@ -1,0 +1,2005 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <!-- ส่วนตั้งค่า Metadata และ Title ของหน้าเว็บ -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill Splitter</title>
+
+    <!-- Google Font K2D ใช้เป็นฟอนต์หลักของเว็บ -->
+    <link href="https://fonts.googleapis.com/css2?family=K2D:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- SDK ของ Canva Element (ถ้ามีใช้งานใน Canva) -->
+    <script src="/_sdk/element_sdk.js"></script>
+
+    <!-- TailwindCSS CDN (ใช้บาง Class ที่กำหนดไว้ เช่น .w-full ฯลฯ) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- OCR สำหรับสแกนบิล (Tesseract.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <!-- ส่วนกำหนดสไตล์หลักของทั้งเว็บ (CSS Global) -->
+    <style>
+      /* กำหนดฟอนต์และ box-sizing ให้ทั้งหน้า */
+      body {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'K2D', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      /* แอนิเมชันเฟดเข้า */
+      .fade-in {
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* แอนิเมชันสไลด์เข้า */
+      .slide-in {
+        animation: slideIn 0.4s ease-out;
+      }
+
+      @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+
+      /* เอฟเฟกต์ตอนโฟกัส input / select / textarea */
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.2);
+      }
+
+      /* เอฟเฟกต์ hover ของ card */
+      .card-hover:hover {
+        transform: translateY(-2px);
+        transition: transform 0.2s ease;
+      }
+
+      /* สไตล์ checkbox สำหรับเลือกคนที่กินเมนู */
+      .checkbox-custom {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #fb923c;
+      }
+
+      /* เลเยอร์ของ modal (ตอนเปิดหน้าสรุปแบบเต็มจอ) */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+      }
+
+      .modal-content {
+        max-width: 900px;
+        max-height: 90%;
+        overflow-y: auto;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      }
+    </style>
+
+    <!-- การตั้งค่า view-transition สำหรับการเปลี่ยนหน้า (ถ้ารองรับ) -->
+    <style>@view-transition { navigation: auto; }</style>
+
+    <!-- SDK สำหรับ data (ถ้าใช้ในระบบ Canva) -->
+    <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <!-- ตัวห่อหลักของ App ทั้งหมด -->
+    <div id="app-wrapper" class="w-full min-h-full"></div>
+
+    <script>
+      // -----------------------------
+      // CONFIG เริ่มต้นของหน้าจอ (ธีม/ข้อความ)
+      // -----------------------------
+      const defaultConfig = {
+        background_color: "#F0FFFF",
+        surface_color: "#ffffff",
+        text_color: "#000000",
+        primary_action_color: "#0fa404",
+        secondary_action_color: "#0ea5e9",
+        app_title: "🧾 แบ่งเงินอย่างยุติธรรม",
+        app_subtitle: "คำนวณการแบ่งเงินแบบง่ายดาย แยกรายชื่อและรายการอาหารที่ชัดเจน",
+        total_amount_label: "💵 จำนวนเงินทั้งหมด (บาท)",
+        people_section_title: "👥 รายชื่อคนในกลุ่ม",
+        add_person_button: "+ เพิ่มคน",
+        items_section_title: "🍽️ รายการอาหาร/เครื่องดื่ม",
+        add_item_button: "+ เพิ่มรายการ",
+        scan_bill_button: "📷 สแกนบิล",
+        calculate_button: " คำนวณ",
+        reset_button: " รีเซ็ต",
+        summary_title: "📋 สรุปรายการ",
+        view_summary_button: "📋 ดูหน้าสรุป",
+        contact_title: "📞 ช่องทางติดต่อ",
+        contact_method_1: "โทรศัพท์",
+        contact_detail_1: "0xx-xxx-xxxx",
+        contact_method_2: "Line ID",
+        contact_detail_2: "@yourlineid",
+        font_family: "K2D",
+        font_size: 16
+      };
+
+      // -----------------------------
+      // STATE หลักของแอป (ข้อมูลในหน้า)
+      // -----------------------------
+      let people = [];      // เก็บรายชื่อคนในกลุ่ม
+      let items = [];       // เก็บรายการอาหาร/เครื่องดื่ม
+      let showScanModal = false;
+      let scanBusy = false;
+      let scanProgress = 0;
+      let scanError = "";
+      let scanRawText = "";
+
+      let totalAmount = 0;  // จำนวนเงินรวมทั้งหมดของบิล
+      let showSummaryModal = false;
+      let currentView = 'main'; // main, payment, contact, summary, guide
+
+      // ช่องทางชำระเงินเริ่มต้น
+      let paymentMethods = [
+        { id: 1, name: 'PromptPay',          detail: '0xx-xxx-xxxx',               icon: '💳' },
+        { id: 2, name: 'ธนาคาร',             detail: ' เลขที่บัญชี xxx-x-xxxxx-x', icon: '🏦' },
+        { id: 3, name: 'True Money Wallet',  detail: '0xx-xxx-xxxx',               icon: '💰' }
+      ];
+
+      // ช่องทางติดต่อเริ่มต้น
+      let contactMethods = [
+        { id: 1, name: 'โทรศัพท์', detail: '0xx-xxx-xxxx' },
+        { id: 2, name: 'Line ID',  detail: '@yourlineid' },
+        { id: 3, name: 'Facebook', detail: 'facebook.com/yourpage' }
+      ];
+
+      // -----------------------------
+      // จัดการรายชื่อคนในกลุ่ม
+      // -----------------------------
+      function addPerson() {
+        const personId = Date.now();
+        people.push({
+          id: personId,
+          name: `คนที่ ${people.length + 1}`
+        });
+        renderPeople();
+        renderItems();
+      }
+
+      function removePerson(personId) {
+        people = people.filter(p => p.id !== personId);
+        items.forEach(item => {
+          item.consumers = item.consumers.filter(id => id !== personId);
+        });
+        renderPeople();
+        renderItems();
+      }
+
+      function updatePersonName(personId, name) {
+        const person = people.find(p => p.id === personId);
+        if (person) {
+          person.name = name;
+          renderItems();
+        }
+      }
+
+      // -----------------------------
+      // จัดการรายการอาหาร/เครื่องดื่ม
+      // -----------------------------
+      function addItem() {
+        const itemId = Date.now();
+        items.push({
+          id: itemId,
+          name: '',
+          price: 0,
+          type: 'food',
+          consumers: []
+        });
+        renderItems();
+      }
+
+      function removeItem(itemId) {
+        items = items.filter(i => i.id !== itemId);
+        renderItems();
+      }
+
+      function updateItemName(itemId, name) {
+        const item = items.find(i => i.id === itemId);
+        if (item) {
+          item.name = name;
+        }
+      }
+
+      function updateItemPrice(itemId, price) {
+        const item = items.find(i => i.id === itemId);
+        if (item) {
+          item.price = parseFloat(price) || 0;
+        }
+      }
+
+      function updateItemType(itemId, type) {
+        const item = items.find(i => i.id === itemId);
+        if (item) {
+          item.type = type;
+          renderItems();
+        }
+      }
+
+      function toggleConsumer(itemId, personId) {
+        const item = items.find(i => i.id === itemId);
+        if (item) {
+          const index = item.consumers.indexOf(personId);
+          if (index > -1) {
+            item.consumers.splice(index, 1);
+          } else {
+            item.consumers.push(personId);
+          }
+          renderItems();
+        }
+      }
+
+      
+      // -----------------------------
+      // ฟีเจอร์ "สแกนบิล" (OCR) -> ดึงรายการอาหารลงในรายการได้เลย
+      // -----------------------------
+      function openBillScan() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        if (typeof Tesseract === 'undefined') {
+          showToast('ไม่พบไลบรารี OCR (Tesseract.js) กรุณาเช็คอินเทอร์เน็ต/สคริปต์ CDN', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+        showScanModal = true;
+        scanBusy = false;
+        scanProgress = 0;
+        scanError = "";
+        scanRawText = "";
+        renderApp();
+      }
+
+      function closeBillScan() {
+        showScanModal = false;
+        scanBusy = false;
+        scanProgress = 0;
+        scanError = "";
+        scanRawText = "";
+        renderApp();
+      }
+
+      function normalizeMoney(str) {
+        if (!str) return null;
+        const cleaned = String(str)
+          .replace(/฿/g, '')
+          .replace(/,/g, '')
+          .replace(/\s/g, '')
+          .replace(/(\d)\.(?=\d{3}(\D|$))/g, '$1'); // กันกรณี OCR ใส่จุดคั่นหลักพัน
+        const num = parseFloat(cleaned);
+        return Number.isFinite(num) ? num : null;
+      }
+
+      function parseReceiptTextToItems(text) {
+        const lines = String(text || '')
+          .split(/\r?\n/)
+          .map(l => l.trim())
+          .filter(Boolean)
+          .map(l => l.replace(/\s{2,}/g, ' '));
+
+        const blacklist = /(vat|tax|service|subtotal|sub total|discount|change|cash|tender|round|รวมทั้งสิ้น|รวมเงิน|เงินทอน|ภาษี|ค่าบริการ|ส่วนลด)/i;
+
+        let detectedTotal = null;
+        const totalRegex = /(total|grand\s*total|ยอด\s*รวม|รวม\s*ทั้ง\s*สิ้น|รวม\s*เงิน)\s*[:：]?\s*([0-9][0-9,\.]{1,})/i;
+
+        const parsedItems = [];
+
+        for (const line of lines) {
+          // หา Total (ถ้ามี)
+          const mTotal = line.match(totalRegex);
+          if (mTotal && detectedTotal === null) {
+            const t = normalizeMoney(mTotal[2]);
+            if (t !== null) detectedTotal = t;
+            continue;
+          }
+
+          // ตัดบรรทัดที่ไม่ใช่รายการ
+          if (blacklist.test(line)) continue;
+
+          // รูปแบบทั่วไป: "ชื่อรายการ  120.00" หรือ "ชื่อรายการ 120"
+          const m = line.match(/^(.{2,}?)\s+(-?\d{1,7}(?:[\.,]\d{2})?)$/);
+          if (m) {
+            const name = m[1].trim().replace(/[-–—]+$/g, '').trim();
+            const price = normalizeMoney(m[2].replace(',', '.'));
+            if (name && price !== null && price >= 0) {
+              // กรองชื่อที่ดูเป็นโค้ด/วันที่
+              if (!/^\d{2,}[\/\-]\d{1,2}[\/\-]\d{1,4}$/.test(name) && name.length <= 60) {
+                parsedItems.push({ name, price, type: 'food' });
+              }
+            }
+          }
+        }
+
+        // กัน OCR อ่านซ้ำ/ผิด: ตัดรายการราคาศูนย์/ซ้ำแบบชัดเจน
+        const uniq = [];
+        const seen = new Set();
+        for (const it of parsedItems) {
+          const key = (it.name + '|' + it.price).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          uniq.push(it);
+        }
+
+        return { items: uniq, total: detectedTotal };
+      }
+
+      async function handleBillFile(file) {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+
+        if (!file) return;
+        scanBusy = true;
+        scanProgress = 0;
+        scanError = "";
+        scanRawText = "";
+        renderApp();
+
+        try {
+          const result = await Tesseract.recognize(
+            file,
+            'tha+eng',
+            {
+              logger: (m) => {
+                if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
+                  scanProgress = Math.round(m.progress * 100);
+                  // อัปเดตหน้าจอแบบเบา ๆ
+                  const prog = document.getElementById('scan-progress-text');
+                  const bar = document.getElementById('scan-progress-bar');
+                  if (prog) prog.textContent = scanProgress + '%';
+                  if (bar) bar.style.width = scanProgress + '%';
+                }
+              }
+            }
+          );
+
+          scanRawText = (result && result.data && result.data.text) ? result.data.text : '';
+          const parsed = parseReceiptTextToItems(scanRawText);
+
+          if (!parsed.items.length) {
+            showToast('สแกนได้ แต่ไม่พบรายการ (ลองถ่ายให้ชัดขึ้น/ไม่เอียง/แสงพอดี)', config.secondary_action_color || defaultConfig.secondary_action_color);
+            scanBusy = false;
+            renderApp();
+            return;
+          }
+
+          // เพิ่มรายการเข้า items
+          const baseId = Date.now();
+          parsed.items.forEach((it, idx) => {
+            items.push({
+              id: baseId + idx,
+              name: it.name,
+              price: it.price,
+              type: it.type || 'food',
+              consumers: []
+            });
+          });
+
+          // ถ้าพบยอดรวม และช่องยอดรวมยังว่าง/เป็น 0 -> ตั้งค่าให้
+          if (parsed.total !== null && (!totalAmount || totalAmount <= 0)) {
+            totalAmount = parsed.total;
+          }
+
+          showToast(`เพิ่มรายการจากบิลแล้ว ${parsed.items.length} รายการ ✓`, '#077204');
+          scanBusy = false;
+          showScanModal = false;
+
+          renderMainView(); // ให้กลับไปหน้าหลักและรีเฟรชรายการ
+        } catch (err) {
+          console.error(err);
+          scanError = (err && err.message) ? err.message : String(err);
+          showToast('สแกนบิลไม่สำเร็จ: ' + scanError, config.secondary_action_color || defaultConfig.secondary_action_color);
+          scanBusy = false;
+          renderApp();
+        }
+      }
+
+// -----------------------------
+      // จัดการช่องทางชำระเงิน
+      // -----------------------------
+      function addPaymentMethod() {
+        const newId = Math.max(...paymentMethods.map(p => p.id), 0) + 1;
+        paymentMethods.push({
+          id: newId,
+          name: 'ช่องทางใหม่',
+          detail: '',
+          icon: '💵'
+        });
+        renderPaymentMethodsEdit();
+      }
+
+      function removePaymentMethod(id) {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        if (paymentMethods.length <= 1) {
+          showToast('ต้องมีช่องทางชำระเงินอย่างน้อย 1 ช่องทาง', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+        paymentMethods = paymentMethods.filter(p => p.id !== id);
+        renderPaymentMethodsEdit();
+      }
+
+      function updatePaymentMethod(id, field, value) {
+        const method = paymentMethods.find(p => p.id === id);
+        if (method) {
+          method[field] = value;
+        }
+      }
+
+      // -----------------------------
+      // จัดการช่องทางติดต่อ
+      // -----------------------------
+      function addContactMethod() {
+        const newId = Math.max(...contactMethods.map(c => c.id), 0) + 1;
+        contactMethods.push({
+          id: newId,
+          name: 'ช่องทางใหม่',
+          detail: ''
+        });
+        renderContactMethodsEdit();
+      }
+
+      function removeContactMethod(id) {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        if (contactMethods.length <= 1) {
+          showToast('ต้องมีช่องทางติดต่ออย่างน้อย 1 ช่องทาง', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+        contactMethods = contactMethods.filter(c => c.id !== id);
+        renderContactMethodsEdit();
+      }
+
+      function updateContactMethod(id, field, value) {
+        const method = contactMethods.find(c => c.id === id);
+        if (method) {
+          method[field] = value;
+        }
+      }
+
+      // -----------------------------
+      // ส่วนฟอร์มแก้ไขช่องทางชำระเงิน (หน้า Payment)
+      // -----------------------------
+      function renderPaymentMethodsEdit() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const container = document.getElementById('payment-methods-container');
+        if (!container) return;
+
+        let html = '';
+        paymentMethods.forEach((method, index) => {
+          html += `
+            <div class="slide-in" style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 16px; animation-delay: ${index * 0.1}s;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 700; margin: 0;">ช่องทางที่ ${index + 1}</h3>
+                ${paymentMethods.length > 1 ? `
+                  <button
+                    onclick="removePaymentMethod(${method.id})"
+                    style="padding: 8px 16px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600;"
+                  >🗑️ ลบ</button>
+                ` : ''}
+              </div>
+
+              <div style="margin-bottom: 16px;">
+                <label for="payment-name-${method.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; margin-bottom: 8px;">ชื่อช่องทาง</label>
+                <input
+                  id="payment-name-${method.id}"
+                  type="text"
+                  value="${method.name}"
+                  onchange="updatePaymentMethod(${method.id}, 'name', this.value)"
+                  placeholder="เช่น PromptPay, ธนาคาร, True Money"
+                  style="width: 100%; padding: 12px 16px; border: 2px solid white; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size)}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600;"
+                />
+              </div>
+
+              <div>
+                <label for="payment-detail-${method.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 8px; opacity: 0.7;">รายละเอียด</label>
+                <textarea
+                  id="payment-detail-${method.id}"
+                  onchange="updatePaymentMethod(${method.id}, 'detail', this.value)"
+                  placeholder="เช่น เลขบัญชี, เบอร์โทร, QR Code"
+                  rows="2"
+                  style="width: 100%; padding: 12px 16px; border: 2px solid white; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size)}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600; resize: vertical;"
+                >${method.detail}</textarea>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // -----------------------------
+      // ส่วนฟอร์มแก้ไขช่องทางติดต่อ (หน้า Contact)
+      // -----------------------------
+      function renderContactMethodsEdit() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const container = document.getElementById('contact-methods-container');
+        if (!container) return;
+
+        let html = '';
+        contactMethods.forEach((method, index) => {
+          html += `
+            <div class="slide-in" style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 16px; animation-delay: ${index * 0.1}s;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 700; margin: 0;">ช่องทางที่ ${index + 1}</h3>
+                ${contactMethods.length > 1 ? `
+                  <button
+                    onclick="removeContactMethod(${method.id})"
+                    style="padding: 8px 16px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600;"
+                  >🗑️ ลบ</button>
+                ` : ''}
+              </div>
+
+              <div style="margin-bottom: 16px;">
+                <label for="contact-name-${method.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; margin-bottom: 8px;">ชื่อช่องทาง</label>
+                <input
+                  id="contact-name-${method.id}"
+                  type="text"
+                  value="${method.name}"
+                  onchange="updateContactMethod(${method.id}, 'name', this.value)"
+                  placeholder="เช่น โทรศัพท์, Line ID, Facebook, Email"
+                  style="width: 100%; padding: 12px 16px; border: 2px solid white; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size)}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600;"
+                />
+              </div>
+
+              <div>
+                <label for="contact-detail-${method.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 8px; opacity: 0.7;">รายละเอียด</label>
+                <textarea
+                  id="contact-detail-${method.id}"
+                  onchange="updateContactMethod(${method.id}, 'detail', this.value)"
+                  placeholder="เช่น เบอร์โทร, Line ID, ลิงก์ Facebook, อีเมล"
+                  rows="2"
+                  style="width: 100%; padding: 12px 16px; border: 2px solid white; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size)}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600; resize: vertical;"
+                >${method.detail}</textarea>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // -----------------------------
+      // ส่วนแสดงช่องทางชำระเงินในหน้าสรุป
+      // -----------------------------
+      function renderPaymentMethodsModal() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        let html = '';
+
+        paymentMethods.forEach((method) => {
+          html += `
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <span style="font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px;">${method.icon}</span>
+                <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700;">${method.name}</span>
+              </div>
+              <div style="background: ${config.background_color || defaultConfig.background_color}; padding: 12px 16px; border-radius: 6px; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600; word-break: break-word;">
+                ${method.detail}
+              </div>
+            </div>
+          `;
+        });
+
+        return html;
+      }
+
+      // -----------------------------
+      // ส่วนแสดงช่องทางติดต่อในหน้าสรุป
+      // -----------------------------
+      function renderContactMethodsModal() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        let html = '';
+
+        contactMethods.forEach((method) => {
+          html += `
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 8px; opacity: 0.7;">${method.name}</div>
+              <div style="background: ${config.background_color || defaultConfig.background_color}; padding: 12px 16px; border-radius: 6px; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600; word-break: break-word;">
+                ${method.detail}
+              </div>
+            </div>
+          `;
+        });
+
+        return html;
+      }
+
+      // -----------------------------
+      // บันทึกค่าจำนวนเงินทั้งหมดจาก input
+      // -----------------------------
+      function saveTotalAmount() {
+        const totalInput = document.getElementById('total-amount');
+        if (totalInput) {
+          totalAmount = parseFloat(totalInput.value) || 0;
+        }
+      }
+
+      // -----------------------------
+      // การเปิด/ปิดหน้าสรุป
+      // -----------------------------
+      function openSummaryModal() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        saveTotalAmount();
+
+        if (totalAmount <= 0) {
+          showToast('กรุณากรอกจำนวนเงินทั้งหมด', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+
+        if (people.length === 0) {
+          showToast('กรุณาเพิ่มคนอย่างน้อย 1 คน', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+
+        currentView = 'summary';
+        renderApp();
+      }
+
+      function closeSummaryModal() {
+        currentView = 'main';
+        renderApp();
+      }
+
+      // เปิดหน้าจัดการช่องทางชำระเงิน
+      function openPaymentPage() {
+        currentView = 'payment';
+        renderApp();
+      }
+
+      // เปิดหน้าจัดการช่องทางติดต่อ
+      function openContactPage() {
+        currentView = 'contact';
+        renderApp();
+      }
+
+      // เปิดหน้าคู่มือการใช้งาน
+      function openGuidePage() {
+        currentView = 'guide';
+        renderApp();
+      }
+
+      // กลับไปหน้าหลักจากหน้าต่าง ๆ
+      function backToMain() {
+        currentView = 'main';
+        renderApp();
+      }
+
+      // บันทึกข้อมูลช่องทางชำระเงิน (แสดง Toast และกลับหน้าหลัก)
+      function savePaymentInfo() {
+        showToast('บันทึกข้อมูลช่องทางชำระเงินแล้ว ✓', '#077204');
+        currentView = 'main';
+        renderApp();
+      }
+
+      // บันทึกข้อมูลช่องทางติดต่อ (แสดง Toast และกลับหน้าหลัก)
+      function saveContactInfo() {
+        showToast('บันทึกข้อมูลช่องทางติดต่อแล้ว ✓', '#077204');
+        currentView = 'main';
+        renderApp();
+      }
+
+      // -----------------------------
+      // หน้า "สรุปรายการ" (Summary View)
+      // -----------------------------
+      function renderSummaryPage() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+
+        let itemsTotal = 0;
+        items.forEach(item => {
+          itemsTotal += item.price;
+        });
+
+        const sharedAmount = totalAmount - itemsTotal;
+        const perPersonShared = sharedAmount / people.length;
+
+        let summaryHtml = `
+          <main style="max-width: 1000px; margin: 0 auto;">
+            <div style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 20px; padding: 40px; box-shadow: 0 12px 40px rgba(0,0,0,0.12);">
+              <!-- ปุ่มย้อนกลับจากหน้าสรุปไปหน้าหลัก -->
+              <div style="display: flex; align-items: center; margin-bottom: 32px;">
+                <button
+                  onclick="closeSummaryModal()"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    background: ${config.background_color || defaultConfig.background_color};
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: none;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
+                    font-weight: 900;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 16px;
+                    flex-shrink: 0;
+                  "
+                >←</button>
+                <h1 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; font-weight: 900; margin: 0;">${config.summary_title || defaultConfig.summary_title}</h1>
+              </div>
+
+              <!-- กล่องแสดงยอดรวมทั้งหมด -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 32px; border: 2px solid ${config.primary_action_color || defaultConfig.primary_action_color};">
+                <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; margin-bottom: 8px; font-weight: 600;">💵 ยอดรวมทั้งหมด</div>
+                <div style="color: ${config.primary_action_color || defaultConfig.primary_action_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2.5}px; font-weight: 800;">${totalAmount.toFixed(2)} ฿</div>
+              </div>
+
+              <!-- แสดงรายชื่อคนในกลุ่ม -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800; margin: 0 0 20px 0;">👥 รายชื่อคนในกลุ่ม (${people.length} คน)</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+        `;
+
+        people.forEach((person, index) => {
+          summaryHtml += `
+            <div style="background: white; padding: 14px; border-radius: 8px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <span style="background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; flex-shrink: 0;">${index + 1}</span>
+              <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${person.name}</span>
+            </div>
+          `;
+        });
+
+        summaryHtml += `
+                </div>
+              </div>
+
+              <!-- แสดงรายการอาหาร/เครื่องดื่มทั้งหมด -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800; margin: 0 0 20px 0;">🍽️ รายการอาหาร/เครื่องดื่ม (${items.length} รายการ)</h3>
+        `;
+
+        if (items.length === 0) {
+          summaryHtml += `
+            <div style="text-align: center; padding: 40px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.5;">
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; margin-bottom: 8px;">🍽️</div>
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">ยังไม่มีรายการ</div>
+            </div>
+          `;
+        } else {
+          items.forEach((item) => {
+            const icon = item.type === 'food' ? '🍽️' : '🥤';
+            const consumerNames = item.consumers.map(cid => {
+              const p = people.find(person => person.id === cid);
+              return p ? p.name : '';
+            }).filter(n => n).join(', ');
+
+            summaryHtml += `
+              <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                  <div style="flex: 1;">
+                    <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; margin-bottom: 4px;">
+                      <span style="margin-right: 8px;">${icon}</span>${item.name || 'ไม่ระบุชื่อ'}
+                    </div>
+                    <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; opacity: 0.7;">
+                      ${consumerNames || 'ยังไม่มีผู้สั่ง'}
+                    </div>
+                  </div>
+                  <div style="color: ${config.primary_action_color || defaultConfig.primary_action_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 700; white-space: nowrap; margin-left: 16px;">
+                    ${item.price.toFixed(2)} ฿
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+
+          summaryHtml += `
+            <div style="background: white; padding: 16px; border-radius: 8px; border: 2px solid ${config.primary_action_color || defaultConfig.primary_action_color}; margin-top: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 700;">รวมราคารายการ:</span>
+                <span style="color: ${config.primary_action_color || defaultConfig.primary_action_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800;">${itemsTotal.toFixed(2)} ฿</span>
+              </div>
+            </div>
+          `;
+        }
+
+        summaryHtml += `
+              </div>
+
+              <!-- ส่วนแสดงช่องทางชำระเงิน -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                  <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800; margin: 0;">💳 ช่องทางชำระเงิน</h3>
+                </div>
+                ${renderPaymentMethodsModal()}
+              </div>
+
+              <!-- ส่วนแสดงช่องทางติดต่อ -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                  <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800; margin: 0;">📞 ช่องทางติดต่อ</h3>
+                </div>
+                ${renderContactMethodsModal()}
+              </div>
+
+              <!-- ปุ่มกลับหน้าหลัก -->
+              <div style="display: flex; justify-content: center; margin-top: 8px;">
+                <button
+                  onclick="closeSummaryModal()"
+                  style="padding: 14px 32px; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 1.0}px; font-weight: 800; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"
+                >← กลับหน้าหลัก</button>
+              </div>
+            </div>
+          </main>
+        `;
+
+        return summaryHtml;
+      }
+
+      // -----------------------------
+      // ฟังก์ชันคำนวณการหารบิล
+      // -----------------------------
+      function calculateSplit() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const totalInput = document.getElementById('total-amount');
+        totalAmount = parseFloat(totalInput.value) || 0;
+
+        if (totalAmount <= 0) {
+          showToast('กรุณากรอกจำนวนเงินทั้งหมด', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+
+        if (people.length === 0) {
+          showToast('กรุณาเพิ่มคนอย่างน้อย 1 คน', config.secondary_action_color || defaultConfig.secondary_action_color);
+          return;
+        }
+
+        let itemsTotal = 0;
+        items.forEach(item => {
+          itemsTotal += item.price;
+        });
+
+        const sharedAmount = totalAmount - itemsTotal;
+        const perPersonShared = sharedAmount / people.length;
+
+        const results = people.map(person => {
+          let personItemsTotal = 0;
+          const personItems = [];
+
+          items.forEach(item => {
+            if (item.consumers.includes(person.id)) {
+              const itemPerPerson = item.price / item.consumers.length;
+              personItemsTotal += itemPerPerson;
+              personItems.push({
+                name: item.name,
+                type: item.type,
+                price: itemPerPerson,
+                totalPrice: item.price,
+                sharedWith: item.consumers.length
+              });
+            }
+          });
+
+          const personTotal = personItemsTotal + perPersonShared;
+          return {
+            name: person.name,
+            items: personItems,
+            itemsTotal: personItemsTotal,
+            sharedAmount: perPersonShared,
+            total: personTotal
+          };
+        });
+
+        displayResults(results);
+      }
+
+      // -----------------------------
+      // แสดงผลการคำนวณ (ผลลัพธ์ของแต่ละคนต้องจ่ายเท่าไหร่)
+      // -----------------------------
+      function displayResults(results) {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const resultsContainer = document.getElementById('results-container');
+
+        let html = `
+          <div class="fade-in" style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 16px; padding: 28px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); margin-top: 32px;">
+            <h3 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.75}px; font-weight: 800; margin: 0 0 24px 0; text-align: center;">📊 ผลการคำนวณ</h3>
+            <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 2px solid ${config.primary_action_color || defaultConfig.primary_action_color};">
+              <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; margin-bottom: 8px; font-weight: 600;">💵 ยอดรวมทั้งหมด</div>
+              <div style="color: ${config.primary_action_color || defaultConfig.primary_action_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2.25}px; font-weight: 800;">${totalAmount.toFixed(2)} ฿</div>
+            </div>
+        `;
+
+        results.forEach((result, index) => {
+          html += `
+            <div class="slide-in" style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 20px; margin-bottom: 16px; border-left: 4px solid ${config.primary_action_color || defaultConfig.primary_action_color}; animation-delay: ${index * 0.1}s;">
+              <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center;">
+                <span style="background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-right: 12px; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">${index + 1}</span>
+                ${result.name}
+              </div>
+          `;
+
+          if (result.items.length > 0) {
+            html += `
+              <div style="margin-bottom: 12px; background: white; padding: 12px; border-radius: 8px;">
+                <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600; margin-bottom: 12px;">รายการที่สั่ง:</div>
+            `;
+
+            result.items.forEach(item => {
+              const icon = item.type === 'food' ? '🍽️' : '🥤';
+              const shareText = item.sharedWith > 1 ? ` (แบ่ง ${item.sharedWith} คน)` : '';
+              html += `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed ${config.background_color || defaultConfig.background_color};">
+                  <div>
+                    <span style="margin-right: 8px;">${icon}</span>
+                    <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">${item.name}${shareText}</span>
+                  </div>
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600;">${item.price.toFixed(2)} ฿</span>
+                </div>
+              `;
+            });
+
+            html += `
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid ${config.background_color || defaultConfig.background_color}; display: flex; justify-content: space-between;">
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600;">รวมรายการส่วนตัว:</span>
+                  <span style="color: ${config.primary_action_color || defaultConfig.primary_action_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700;">${result.itemsTotal.toFixed(2)} ฿</span>
+                </div>
+              </div>
+            `;
+          }
+
+          html += `
+              <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">รายการส่วนตัว:</span>
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600;">${result.itemsTotal.toFixed(2)} ฿</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">ส่วนที่หารกลาง:</span>
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600;">${result.sharedAmount.toFixed(2)} ฿</span>
+                </div>
+              </div>
+
+              <div style="background: ${config.primary_action_color || defaultConfig.primary_action_color}; padding: 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: white; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 700;">💳 ต้องจ่าย:</span>
+                <span style="color: white; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px; font-weight: 800;">${result.total.toFixed(2)} ฿</span>
+              </div>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+        resultsContainer.innerHTML = html;
+      }
+
+      // -----------------------------
+      // Toast แจ้งเตือนด้านขวาบน
+      // -----------------------------
+      function showToast(message, color) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${color};
+          color: white;
+          padding: 16px 24px;
+          border-radius: 12px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+          z-index: 1000;
+          font-weight: 600;
+          animation: fadeIn 0.3s ease-in;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-20px)';
+          toast.style.transition = 'all 0.3s ease-out';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      // -----------------------------
+      // รีเซ็ตข้อมูลทั้งหมดของฟอร์ม
+      // -----------------------------
+      function resetForm() {
+        people = [];
+        items = [];
+        totalAmount = 0;
+        renderMainView();
+        showToast('รีเซ็ทข้อมูลทั้งหมดแล้ว ✓', '#077204');
+      }
+
+      // -----------------------------
+      // หน้า "จัดการช่องทางชำระเงิน"
+      // -----------------------------
+      function renderPaymentPage() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+
+        return `
+          <main style="max-width: 800px; margin: 0 auto;">
+            <div style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 20px; padding: 40px; box-shadow: 0 12px 40px rgba(0,0,0,0.12);">
+              <!-- ปุ่มย้อนกลับจากหน้า Payment -->
+              <div style="display: flex; align-items: center; margin-bottom: 32px;">
+                <button
+                  onclick="backToMain()"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    background: ${config.background_color || defaultConfig.background_color};
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: none;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
+                    font-weight: 900;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 16px;
+                    flex-shrink: 0;
+                  "
+                >←</button>
+                <h1 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; font-weight: 900; margin: 0;">💳 จัดการช่องทางชำระเงิน</h1>
+              </div>
+
+              <!-- กล่องคำแนะนำการตั้งค่าช่องทางชำระเงิน -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid ${config.primary_action_color || defaultConfig.primary_action_color};">
+                <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; line-height: 1.6;">
+                  <strong>💡 คำแนะนำ:</strong> เพิ่มช่องทางชำระเงินที่คุณต้องการ เช่น PromptPay, ธนาคาร, True Money Wallet หรือช่องทางอื่นๆ ตามความต้องการ
+                </div>
+              </div>
+
+              <!-- พื้นที่สำหรับช่องทางชำระเงินที่แก้ไขได้ -->
+              <div id="payment-methods-container" style="margin-bottom: 24px;"></div>
+
+              <!-- ปุ่มเพิ่มช่องทางชำระเงิน -->
+              <button
+                onclick="addPaymentMethod()"
+                style="width: 100%; padding: 14px; background: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border: 2px dashed ${config.primary_action_color || defaultConfig.primary_action_color}; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; margin-bottom: 24px;"
+              >➕ เพิ่มช่องทางชำระเงิน</button>
+
+              <!-- ปุ่ม ยกเลิก / บันทึก ด้านล่าง -->
+              <div style="display: flex; gap: 12px;">
+                <button
+                  onclick="backToMain()"
+                  style="
+                    flex: 1;
+                    padding: 14px;
+                    background: #077204;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size)}px;
+                    font-weight: 700;
+                  "
+                >ยกเลิก</button>
+                <button
+                  onclick="savePaymentInfo()"
+                  style="
+                    flex: 1;
+                    padding: 14px;
+                    background: #2eb512;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size)}px;
+                    font-weight: 700;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                  "
+                >💾 บันทึก</button>
+              </div>
+            </div>
+          </main>
+        `;
+      }
+
+      // -----------------------------
+      // หน้า "จัดการช่องทางติดต่อ"
+      // -----------------------------
+      function renderContactPage() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+
+        return `
+          <main style="max-width: 800px; margin: 0 auto;">
+            <div style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 20px; padding: 40px; box-shadow: 0 12px 40px rgba(0,0,0,0.12);">
+              <!-- ปุ่มย้อนกลับจากหน้า Contact -->
+              <div style="display: flex; align-items: center; margin-bottom: 32px;">
+                <button
+                  onclick="backToMain()"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    background: ${config.background_color || defaultConfig.background_color};
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: none;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
+                    font-weight: 900;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 16px;
+                    flex-shrink: 0;
+                  "
+                >←</button>
+                <h1 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; font-weight: 900; margin: 0;">📞 จัดการช่องทางติดต่อ</h1>
+              </div>
+
+              <!-- กล่องคำแนะนำการตั้งค่าช่องทางติดต่อ -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid ${config.secondary_action_color || defaultConfig.secondary_action_color};">
+                <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; line-height: 1.6;">
+                  <strong>💡 คำแนะนำ:</strong> เพิ่มช่องทางติดต่อที่คุณต้องการ เช่น โทรศัพท์, Line ID, Facebook, Email, Instagram หรือช่องทางอื่นๆ ตามความต้องการ
+                </div>
+              </div>
+
+              <!-- พื้นที่สำหรับช่องทางติดต่อที่แก้ไขได้ -->
+              <div id="contact-methods-container" style="margin-bottom: 24px;"></div>
+
+              <!-- ปุ่มเพิ่มช่องทางติดต่อ -->
+              <button
+                onclick="addContactMethod()"
+                style="width: 100%; padding: 14px; background: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border: 2px dashed #2eb512; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; margin-bottom: 24px;"
+              >➕ เพิ่มช่องทางติดต่อ</button>
+
+              <!-- ปุ่ม ยกเลิก / บันทึก ด้านล่าง -->
+              <div style="display: flex; gap: 12px;">
+                <button
+                  onclick="backToMain()"
+                  style="
+                    flex: 1;
+                    padding: 14px;
+                    background: #077204;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size)}px;
+                    font-weight: 700;
+                  "
+                >ยกเลิก</button>
+                <button
+                  onclick="saveContactInfo()"
+                  style="
+                    flex: 1;
+                    padding: 14px;
+                    background: #2eb512;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size)}px;
+                    font-weight: 700;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                  "
+                >💾 บันทึก</button>
+              </div>
+            </div>
+          </main>
+        `;
+      }
+
+      // -----------------------------
+      // หน้า "คู่มือการใช้งาน"
+      // -----------------------------
+      function renderGuidePage() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+
+        return `
+          <main style="max-width: 900px; margin: 0 auto;">
+            <div style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 20px; padding: 40px; box-shadow: 0 12px 40px rgba(0,0,0,0.12);">
+              <!-- ปุ่มย้อนกลับจากหน้า Guide -->
+              <div style="display: flex; align-items: center; margin-bottom: 32px;">
+                <button
+                  onclick="backToMain()"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    background: ${config.background_color || defaultConfig.background_color};
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: none;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.7}px;
+                    font-weight: 900;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 16px;
+                    flex-shrink: 0;
+                  "
+                >←</button>
+                <h1 style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; font-weight: 900; margin: 0;">📘 คู่มือการใช้งาน</h1>
+              </div>
+
+              <!-- ส่วนอธิบายภาพรวมของคู่มือ -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                <p style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.95}px; line-height: 1.8; margin: 0;">
+                  คู่มือนี้อธิบายขั้นตอนการใช้งานเว็บ <strong>“แบ่งเงินอย่างยุติธรรม”</strong> ตั้งแต่เริ่มต้นจนถึงสรุปยอดที่แต่ละคนต้องจ่าย เหมาะสำหรับเวลาไปกินข้าว/เที่ยวกับเพื่อนแล้วอยากหารเงินแบบยุติธรรม
+                </p>
+              </div>
+
+              <!-- ลิสต์ขั้นตอนการใช้งานทีละข้อ -->
+              <ol style="list-style: none; padding: 0; margin: 0;">
+                <!-- แต่ละ li คือ 1 ขั้นตอนในคู่มือ -->
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">1</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">กรอกยอดรวมบิลทั้งหมด</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        ใส่จำนวนเงินรวมทั้งหมดของบิล เช่น 1,250 บาท ในช่อง <strong>“จำนวนเงินทั้งหมด (บาท)”</strong>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">2</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">เพิ่มรายชื่อคนในกลุ่ม</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        กดปุ่ม <strong>“+ เพิ่มคน”</strong> เพื่อเพิ่มชื่อเพื่อนแต่ละคน สามารถแก้ไขชื่อให้เป็นชื่อเล่น/ชื่อจริงได้ตามต้องการ
+                      </div>
+                    </div>
+                  </div>
+                </li>
+
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">3</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">เพิ่มรายการอาหาร/เครื่องดื่ม</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        กดปุ่ม <strong>“+ เพิ่มรายการ”</strong> แล้วกรอกชื่อเมนูและราคา เช่น “ส้มตำ”, “ชานม”, “พิซซ่าใหญ่” พร้อมกำหนดประเภทเป็นอาหารหรือเครื่องดื่ม
+                      </div>
+                    </div>
+                  </div>
+                </li>
+
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">4</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">เลือกว่า “ใครกินอะไร”</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        ในแต่ละรายการ ให้ติ๊กชื่อคนที่สั่งเมนูนั้น ๆ หากหลายคนแชร์เมนูเดียวกัน ระบบจะแบ่งราคาให้โดยอัตโนมัติ
+                      </div>
+                    </div>
+                  </div>
+                </li>
+
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">5</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">กดปุ่ม “คำนวณ”</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        ระบบจะสรุปให้ว่าแต่ละคนต้องจ่ายเท่าไหร่ แยกเป็น <strong>“รายการส่วนตัว”</strong> และ <strong>“ส่วนที่หารกลาง”</strong>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+
+                <li style="margin-bottom: 18px; background: white; padding: 16px 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                  <div style="display: flex; gap: 12px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">6</div>
+                    <div>
+                      <div style="font-weight: 700; color: ${config.text_color || defaultConfig.text_color}; margin-bottom: 4px;">ดูหน้าสรุปและช่องทางชำระเงิน</div>
+                      <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.9}px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.8;">
+                        กดปุ่ม <strong>“📋 ดูหน้าสรุป”</strong> เพื่อแสดงรายการทั้งหมด พร้อมข้อมูลช่องทางชำระเงินและช่องทางติดต่อที่คุณตั้งค่าไว้
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </main>
+        `;
+      }
+
+      // -----------------------------
+      // แสดงรายชื่อคนในกลุ่ม (ส่วนกลางของหน้า)
+      // -----------------------------
+      function renderPeople() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const container = document.getElementById('people-container');
+
+        if (!container) return;
+
+        if (people.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.6;">
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 3}px; margin-bottom: 12px;">👥</div>
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">คลิกปุ่มด้านบนเพื่อเพิ่มคน</div>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">';
+        people.forEach((person, index) => {
+          html += `
+            <div class="card-hover" style="background: ${config.background_color || defaultConfig.background_color}; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; flex-shrink: 0;">${index + 1}</span>
+                <input
+                  type="text"
+                  value="${person.name}"
+                  onchange="updatePersonName(${person.id}, this.value)"
+                  aria-label="ชื่อคน"
+                  style="flex: 1; padding: 6px 10px; border: 2px solid white; border-radius: 6px; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600; min-width: 0;"
+                />
+              </div>
+              <button
+                onclick="removePerson(${person.id})"
+                aria-label="ลบคน"
+                style="width: 100%; padding: 6px 12px; background: #0EA5E9; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600;"
+              >🗑️ ลบ</button>
+            </div>
+          `;
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+      }
+
+      // -----------------------------
+      // แสดงรายการอาหาร/เครื่องดื่ม
+      // -----------------------------
+      function renderItems() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const container = document.getElementById('items-container');
+        if (!container) return;
+
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.6;">
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 3}px; margin-bottom: 12px;">🍽️</div>
+              <div style="font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">คลิกปุ่มด้านบนเพื่อเพิ่มรายการ</div>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        items.forEach((item) => {
+          html += `
+            <div class="card-hover slide-in" style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); border-left: 4px solid ${item.type === 'food' ? config.primary_action_color || defaultConfig.primary_action_color : config.secondary_action_color || defaultConfig.secondary_action_color};">
+              <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                <!-- ช่องกรอกชื่อเมนู -->
+                <div style="flex: 1; min-width: 200px;">
+                  <label for="item-name-${item.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 6px; opacity: 0.7;">ชื่อรายการ</label>
+                  <input
+                    id="item-name-${item.id}"
+                    type="text"
+                    placeholder="เช่น ผัดไทย, น้ำส้ม"
+                    value="${item.name}"
+                    onchange="updateItemName(${item.id}, this.value)"
+                    aria-label="ชื่อรายการ"
+                    style="width: 100%; padding: 10px 14px; border: 2px solid ${config.background_color || defaultConfig.background_color}; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600;"
+                  />
+                </div>
+
+                <!-- ช่องกรอกราคา -->
+                <div style="width: 120px;">
+                  <label for="item-price-${item.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 6px; opacity: 0.7;">ราคา (฿)</label>
+                  <input
+                    id="item-price-${item.id}"
+                    type="number"
+                    placeholder="0.00"
+                    value="${item.price || ''}"
+                    onchange="updateItemPrice(${item.id}, this.value)"
+                    aria-label="ราคา"
+                    style="width: 100%; padding: 10px 14px; border: 2px solid ${config.background_color || defaultConfig.background_color}; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 700;"
+                  />
+                </div>
+
+                <!-- เลือกประเภทเมนู -->
+                <div style="width: 140px;">
+                  <label for="item-type-${item.id}" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.75}px; font-weight: 600; margin-bottom: 6px; opacity: 0.7;">ประเภท</label>
+                  <select
+                    id="item-type-${item.id}"
+                    onchange="updateItemType(${item.id}, this.value)"
+                    aria-label="ประเภทรายการ"
+                    style="width: 100%; padding: 10px 14px; border: 2px solid ${config.background_color || defaultConfig.background_color}; border-radius: 8px; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; color: ${config.text_color || defaultConfig.text_color}; font-weight: 600; cursor: pointer; background: white;"
+                  >
+                    <option value="food" ${item.type === 'food' ? 'selected' : ''}>🍽️ อาหาร</option>
+                    <option value="drink" ${item.type === 'drink' ? 'selected' : ''}>🥤 เครื่องดื่ม</option>
+                  </select>
+                </div>
+
+                <!-- ปุ่มลบรายการ -->
+                <div style="display: flex; align-items: flex-end;">
+                  <button
+                    onclick="removeItem(${item.id})"
+                    aria-label="ลบรายการ"
+                    style="padding: 10px 16px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600; height: 42px;"
+                  >🗑️</button>
+                </div>
+              </div>
+          `;
+
+          if (people.length > 0) {
+            html += `
+              <!-- ส่วนเลือกว่าใครกินเมนูนี้ -->
+              <div style="background: ${config.background_color || defaultConfig.background_color}; padding: 16px; border-radius: 8px;">
+                <div style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; margin-bottom: 12px;">ใครสั่งรายการนี้? (เลือกได้หลายคน)</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+            `;
+
+            people.forEach(person => {
+              const isChecked = item.consumers.includes(person.id);
+              html += `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: white; border-radius: 6px; cursor: pointer; border: 2px solid ${isChecked ? config.primary_action_color || defaultConfig.primary_action_color : 'transparent'};">
+                  <input
+                    type="checkbox"
+                    ${isChecked ? 'checked' : ''}
+                    onchange="toggleConsumer(${item.id}, ${person.id})"
+                    class="checkbox-custom"
+                    aria-label="เลือก ${person.name}"
+                  />
+                  <span style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 600;">${person.name}</span>
+                </label>
+              `;
+            });
+
+            html += `
+                </div>
+              </div>
+            `;
+          } else {
+            html += `
+              <div style="background: ${config.background_color || defaultConfig.background_color}; padding: 16px; border-radius: 8px; text-align: center; color: ${config.text_color || defaultConfig.text_color}; opacity: 0.6; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">
+                กรุณาเพิ่มคนก่อนเพื่อเลือกว่าใครสั่งรายการนี้
+              </div>
+            `;
+          }
+
+          html += `
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // -----------------------------
+      // onConfigChange: เรียกใช้เมื่อผู้ใช้เปลี่ยน config ใน Canva
+      // -----------------------------
+      async function onConfigChange(config) {
+        const customFont = config.font_family || defaultConfig.font_family;
+        const baseFontStack = 'K2D, Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
+
+        document.body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+
+        const wrapper = document.getElementById('app-wrapper');
+        if (wrapper) {
+          wrapper.style.background = config.background_color || defaultConfig.background_color;
+          wrapper.style.minHeight = '100%';
+          wrapper.style.padding = '40px 20px';
+        }
+
+        const container = document.getElementById('main-container');
+        if (container) {
+          container.style.background = config.surface_color || defaultConfig.surface_color;
+        }
+
+        const title = document.getElementById('app-title');
+        if (title) {
+          title.textContent = config.app_title || defaultConfig.app_title;
+          title.style.color = config.text_color || defaultConfig.text_color;
+          title.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 2}px`;
+        }
+
+        const subtitle = document.getElementById('app-subtitle');
+        if (subtitle) {
+          subtitle.textContent = config.app_subtitle || defaultConfig.app_subtitle;
+          subtitle.style.color = config.text_color || defaultConfig.text_color;
+          subtitle.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const totalLabel = document.getElementById('total-label');
+        if (totalLabel) {
+          totalLabel.textContent = config.total_amount_label || defaultConfig.total_amount_label;
+          totalLabel.style.color = config.text_color || defaultConfig.text_color;
+          totalLabel.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const peopleTitle = document.getElementById('people-section-title');
+        if (peopleTitle) {
+          peopleTitle.textContent = config.people_section_title || defaultConfig.people_section_title;
+          peopleTitle.style.color = config.text_color || defaultConfig.text_color;
+          peopleTitle.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 1.25}px`;
+        }
+
+        const itemsTitle = document.getElementById('items-section-title');
+        if (itemsTitle) {
+          itemsTitle.textContent = config.items_section_title || defaultConfig.items_section_title;
+          itemsTitle.style.color = config.text_color || defaultConfig.text_color;
+          itemsTitle.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 1.25}px`;
+        }
+
+        const addPersonBtn = document.getElementById('add-person-btn');
+        if (addPersonBtn) {
+          addPersonBtn.textContent = config.add_person_button || defaultConfig.add_person_button;
+          addPersonBtn.style.background = '#0EA5E9';
+          addPersonBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+          addItemBtn.textContent = config.add_item_button || defaultConfig.add_item_button;
+          addItemBtn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
+          addItemBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const scanBillBtn = document.getElementById('scan-bill-btn');
+        if (scanBillBtn) {
+          scanBillBtn.textContent = config.scan_bill_button || defaultConfig.scan_bill_button;
+          scanBillBtn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
+          scanBillBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const viewSummaryBtn = document.getElementById('view-summary-btn');
+        if (viewSummaryBtn) {
+          viewSummaryBtn.textContent = config.view_summary_button || defaultConfig.view_summary_button;
+          viewSummaryBtn.style.background = 'white';
+          viewSummaryBtn.style.color = config.text_color || defaultConfig.text_color;
+          viewSummaryBtn.style.border = `2px solid #cccccc`;
+          viewSummaryBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const managePaymentBtn = document.getElementById('manage-payment-btn');
+        if (managePaymentBtn) {
+          managePaymentBtn.style.background = 'white';
+          managePaymentBtn.style.color = config.text_color || defaultConfig.text_color;
+          managePaymentBtn.style.border = `2px solid #cccccc`;
+        }
+
+        const manageContactBtn = document.getElementById('manage-contact-btn');
+        if (manageContactBtn) {
+          manageContactBtn.style.background = 'white';
+          manageContactBtn.style.color = config.text_color || defaultConfig.text_color;
+          manageContactBtn.style.border = `2px solid #cccccc`;
+        }
+
+        const guideBtn = document.getElementById('guide-btn');
+        if (guideBtn) {
+          guideBtn.style.background = 'white';
+          guideBtn.style.color = config.text_color || defaultConfig.text_color;
+          guideBtn.style.border = `2px solid #cccccc`;
+          guideBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 0.875}px`;
+        }
+
+        const calculateBtn = document.getElementById('calculate-btn');
+        if (calculateBtn) {
+          calculateBtn.textContent = config.calculate_button || defaultConfig.calculate_button;
+          calculateBtn.style.background = config.primary_action_color || defaultConfig.primary_action_color;
+          calculateBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 1.125}px`;
+        }
+
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+          resetBtn.textContent = config.reset_button || defaultConfig.reset_button;
+          resetBtn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
+          resetBtn.style.fontSize = `${(config.font_size || defaultConfig.font_size)}px`;
+        }
+
+        const totalInput = document.getElementById('total-amount');
+        if (totalInput) {
+          totalInput.style.fontSize = `${(config.font_size || defaultConfig.font_size) * 1.125}px`;
+          totalInput.style.color = config.text_color || defaultConfig.text_color;
+          totalInput.style.border = '3px solid #cccccc';
+        }
+
+        renderPeople();
+        renderItems();
+      }
+
+      // -----------------------------
+      // renderApp: เลือกว่าแสดง view ไหนตอนนี้
+      // -----------------------------
+      function renderApp() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const wrapper = document.getElementById('app-wrapper');
+        wrapper.style.background = config.background_color || defaultConfig.background_color;
+
+        if (currentView === 'payment') {
+          wrapper.innerHTML = renderPaymentPage();
+          setTimeout(() => renderPaymentMethodsEdit(), 0);
+          return;
+        }
+
+        if (currentView === 'contact') {
+          wrapper.innerHTML = renderContactPage();
+          setTimeout(() => renderContactMethodsEdit(), 0);
+          return;
+        }
+
+        if (currentView === 'summary') {
+          wrapper.innerHTML = renderSummaryPage();
+          return;
+        }
+
+        if (currentView === 'guide') {
+          wrapper.innerHTML = renderGuidePage();
+          return;
+        }
+
+        renderMainView();
+      }
+
+      // -----------------------------
+      // หน้าหลัก (Main View) ของเว็บ
+      // -----------------------------
+      function renderMainView() {
+        const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+        const customFont = config.font_family || defaultConfig.font_family;
+        const baseFontStack = 'K2D, Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
+
+        document.body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+
+        const wrapper = document.getElementById('app-wrapper');
+        wrapper.style.background = config.background_color || defaultConfig.background_color;
+
+        wrapper.innerHTML = `
+          <main style="max-width: 1000px; margin: 0 auto;">
+            <!-- กล่องหลักของแอป -->
+            <div id="main-container" style="background: ${config.surface_color || defaultConfig.surface_color}; border-radius: 20px; padding: 36px; box-shadow: 0 12px 40px rgba(0,0,0,0.12);">
+              <!-- ส่วนหัวเว็บ (ชื่อแอป + คำอธิบาย) -->
+              <header style="text-align: center; margin-bottom: 36px;">
+                <h1 id="app-title" style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 2}px; font-weight: 900; margin: 0 0 12px 0;">${config.app_title || defaultConfig.app_title}</h1>
+                <p id="app-subtitle" style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; margin: 0; opacity: 0.7;">${config.app_subtitle || defaultConfig.app_subtitle}</p>
+              </header>
+
+              <!-- แถวปุ่มเมนูด้านบน (ดูหน้าสรุป / ชำระเงิน / ติดต่อ / คู่มือ) -->
+              <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+                <!-- ปุ่มดูหน้าสรุป (Summary) -->
+                <button
+                  id="view-summary-btn"
+                  onclick="openSummaryModal()"
+                  style="
+                    flex: 1;
+                    min-width: 150px;
+                    padding: 12px 16px;
+                    background: white;
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: 2px solid #cccccc;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
+                    font-weight: 600;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                  "
+                >${config.view_summary_button || defaultConfig.view_summary_button}</button>
+
+                <!-- ปุ่มจัดการช่องทางชำระเงิน -->
+                <button
+                  id="manage-payment-btn"
+                  onclick="openPaymentPage()"
+                  style="
+                    flex: 1;
+                    min-width: 150px;
+                    padding: 12px 16px;
+                    background: white;
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: 2px solid #cccccc;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
+                    font-weight: 600;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                  "
+                >💳 จัดการช่องทางชำระเงิน</button>
+
+                <!-- ปุ่มจัดการช่องทางติดต่อ -->
+                <button
+                  id="manage-contact-btn"
+                  onclick="openContactPage()"
+                  style="
+                    flex: 1;
+                    min-width: 150px;
+                    padding: 12px 16px;
+                    background: white;
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: 2px solid #cccccc;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
+                    font-weight: 600;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                  "
+                >📞 จัดการช่องทางติดต่อ</button>
+
+                <!-- ปุ่มเปิดคู่มือการใช้งาน -->
+                <button
+                  id="guide-btn"
+                  onclick="openGuidePage()"
+                  style="
+                    flex: 1;
+                    min-width: 150px;
+                    padding: 12px 16px;
+                    background: white;
+                    color: ${config.text_color || defaultConfig.text_color};
+                    border: 2px solid #cccccc;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;
+                    font-weight: 600;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                  "
+                >📘 คู่มือการใช้งาน</button>
+              </div>
+
+              <!-- ส่วนกรอกจำนวนเงินรวมของบิล -->
+              <div style="margin-bottom: 32px;">
+                <label id="total-label" for="total-amount" style="display: block; color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; margin-bottom: 10px;">${config.total_amount_label || defaultConfig.total_amount_label}</label>
+                <input
+                  type="number"
+                  id="total-amount"
+                  placeholder="0.00"
+                  value="${totalAmount || ''}"
+                  onchange="saveTotalAmount()"
+                  aria-label="จำนวนเงินทั้งหมด"
+                  style="
+                    width: 100%;
+                    padding: 14px 18px;
+                    border: 3px solid #cccccc;
+                    border-radius: 10px;
+                    font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px;
+                    color: ${config.text_color || defaultConfig.text_color};
+                    font-weight: 700;
+                  "
+                />
+              </div>
+
+              <!-- บล็อกจัดการรายชื่อคนในกลุ่ม -->
+              <div style="margin-bottom: 32px; background: ${config.background_color || defaultConfig.background_color}; padding: 24px; border-radius: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                  <h2 id="people-section-title" style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px; font-weight: 800; margin: 0;">${config.people_section_title || defaultConfig.people_section_title}</h2>
+                  <button
+                    id="add-person-btn"
+                    onclick="addPerson()"
+                    style="padding: 10px 20px; background: #0EA5E9; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; box-shadow: 0 4px 8px rgba(0,0,0,0.15);"
+                  >${config.add_person_button || defaultConfig.add_person_button}</button>
+                </div>
+                <!-- container รายชื่อคน -->
+                <div id="people-container"></div>
+              </div>
+
+              <!-- บล็อกจัดการรายการอาหาร/เครื่องดื่ม -->
+              <div style="margin-bottom: 32px; background: ${config.background_color || defaultConfig.background_color}; padding: 24px; border-radius: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                  <h2 id="items-section-title" style="color: ${config.text_color || defaultConfig.text_color}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px; font-weight: 800; margin: 0;">${config.items_section_title || defaultConfig.items_section_title}</h2>
+                  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <button
+                      id="scan-bill-btn"
+                      onclick="openBillScan()"
+                      style="padding: 10px 20px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; box-shadow: 0 4px 8px rgba(0,0,0,0.15);"
+                    >${config.scan_bill_button || defaultConfig.scan_bill_button}</button>
+                    <button
+                      id="add-item-btn"
+                      onclick="addItem()"
+                      style="padding: 10px 20px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px; font-weight: 700; box-shadow: 0 4px 8px rgba(0,0,0,0.15);"
+                    >${config.add_item_button || defaultConfig.add_item_button}</button>
+                  </div>
+                </div>
+                <!-- container รายการเมนู -->
+                <div id="items-container"></div>
+              </div>
+
+              <!-- ปุ่มคำนวณ / รีเซ็ตด้านล่าง -->
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button
+                  id="calculate-btn"
+                  onclick="calculateSplit()"
+                  style="flex: 2; min-width: 200px; padding: 18px; background: ${config.primary_action_color || defaultConfig.primary_action_color}; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size) * 1.125}px; font-weight: 800; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"
+                >${config.calculate_button || defaultConfig.calculate_button}</button>
+                <button
+                  id="reset-btn"
+                  onclick="resetForm()"
+                  style="padding: 18px 28px; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: ${(config.font_size || defaultConfig.font_size)}px; font-weight: 700; box-shadow: 0 6px 12px rgba(0,0,0,0.15);"
+                >${config.reset_button || defaultConfig.reset_button}</button>
+              </div>
+
+              <!-- Container แสดงผลการคำนวณ -->
+              <div id="results-container"></div>
+            
+
+              ${showScanModal ? `
+                <div class="modal-overlay" onclick="closeBillScan()">
+                  <div class="modal-content" onclick="event.stopPropagation()" style="width: 100%; background: white; padding: 26px; border-radius: 20px;">
+                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 14px;">
+                      <h3 style="margin:0; font-weight: 900; font-size: ${(config.font_size || defaultConfig.font_size) * 1.35}px; color: ${config.text_color || defaultConfig.text_color};">📷 สแกนบิล</h3>
+                      <button onclick="closeBillScan()" style="width:40px;height:40px;border-radius:999px;border:none;background:${config.background_color || defaultConfig.background_color};cursor:pointer;font-size:18px;font-weight:900;">✕</button>
+                    </div>
+
+                    <div style="background:${config.background_color || defaultConfig.background_color}; border-radius: 12px; padding: 14px; margin-bottom: 14px; color:${config.text_color || defaultConfig.text_color}; font-size:${(config.font_size || defaultConfig.font_size) * 0.9}px; line-height:1.6;">
+                      ถ่าย/เลือกรูปบิลให้ <strong>ชัด ไม่เอียง แสงพอดี</strong> แล้วระบบจะดึง <strong>ชื่อรายการ + ราคา</strong> ไปใส่ในรายการอาหารให้ทันที
+                    </div>
+
+                    <input
+                      id="bill-file-input"
+                      type="file"
+                      accept="image/*"
+                      onchange="handleBillFile(this.files && this.files[0])"
+                      style="width:100%; padding: 12px; border: 2px dashed ${config.secondary_action_color || defaultConfig.secondary_action_color}; border-radius: 12px; cursor:pointer; margin-bottom: 14px;"
+                    />
+
+                    ${scanBusy ? `
+                      <div style="margin-top: 6px;">
+                        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+                          <div style="font-weight: 800; color:${config.text_color || defaultConfig.text_color};">กำลังอ่านตัวอักษรจากบิล…</div>
+                          <div id="scan-progress-text" style="font-weight: 900; color:${config.secondary_action_color || defaultConfig.secondary_action_color};">${scanProgress}%</div>
+                        </div>
+                        <div style="width:100%; height: 12px; background:${config.background_color || defaultConfig.background_color}; border-radius: 999px; overflow:hidden; border: 1px solid rgba(0,0,0,0.08);">
+                          <div id="scan-progress-bar" style="height:100%; width:${scanProgress}%; background:${config.secondary_action_color || defaultConfig.secondary_action_color}; transition: width .15s ease;"></div>
+                        </div>
+                        <div style="margin-top: 10px; font-size:${(config.font_size || defaultConfig.font_size) * 0.8}px; opacity:.75;">
+                          ถ้านานมาก ลองใช้รูปที่ตัวหนังสือใหญ่ขึ้น/ไม่สะท้อนแสง
+                        </div>
+                      </div>
+                    ` : ''}
+
+                    ${scanError ? `
+                      <div style="margin-top: 12px; background: #fff1f2; color:#9f1239; padding: 12px 14px; border-radius: 12px; font-weight: 700;">
+                        เกิดข้อผิดพลาด: ${scanError}
+                      </div>
+                    ` : ''}
+
+                    ${scanRawText ? `
+                      <details style="margin-top: 14px;">
+                        <summary style="cursor:pointer; font-weight: 800;">ดูข้อความที่สแกนได้ (Raw OCR)</summary>
+                        <pre style="white-space: pre-wrap; background: ${config.background_color || defaultConfig.background_color}; padding: 12px; border-radius: 12px; margin-top: 10px; max-height: 220px; overflow:auto; font-size:${(config.font_size || defaultConfig.font_size) * 0.8}px;">${scanRawText}</pre>
+                      </details>
+                    ` : ''}
+
+                    <div style="display:flex; gap: 10px; margin-top: 16px;">
+                      <button onclick="closeBillScan()" style="flex:1; padding: 12px 14px; border-radius: 12px; border: 2px solid #e5e7eb; background: white; cursor:pointer; font-weight: 800;">ปิด</button>
+                      <button onclick="document.getElementById('bill-file-input').click()" style="flex:1; padding: 12px 14px; border-radius: 12px; border:none; background: ${config.secondary_action_color || defaultConfig.secondary_action_color}; color:white; cursor:pointer; font-weight: 900;">เลือกรูปใหม่</button>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}</div>
+          </main>
+        `;
+
+        renderPeople();
+        renderItems();
+      }
+
+      // -----------------------------
+      // initApp: ฟังก์ชันเริ่มต้นของแอป
+      // -----------------------------
+      async function initApp() {
+        if (window.elementSdk) {
+          await window.elementSdk.init({
+            defaultConfig,
+            onConfigChange,
+            mapToCapabilities: (config) => ({
+              recolorables: [
+                {
+                  get: () => config.background_color || defaultConfig.background_color,
+                  set: (value) => {
+                    config.background_color = value;
+                    window.elementSdk.setConfig({ background_color: value });
+                  }
+                },
+                {
+                  get: () => config.surface_color || defaultConfig.surface_color,
+                  set: (value) => {
+                    config.surface_color = value;
+                    window.elementSdk.setConfig({ surface_color: value });
+                  }
+                },
+                {
+                  get: () => config.text_color || defaultConfig.text_color,
+                  set: (value) => {
+                    config.text_color = value;
+                    window.elementSdk.setConfig({ text_color: value });
+                  }
+                },
+                {
+                  get: () => config.primary_action_color || defaultConfig.primary_action_color,
+                  set: (value) => {
+                    config.primary_action_color = value;
+                    window.elementSdk.setConfig({ primary_action_color: value });
+                  }
+                },
+                {
+                  get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+                  set: (value) => {
+                    config.secondary_action_color = value;
+                    window.elementSdk.setConfig({ secondary_action_color: value });
+                  }
+                }
+              ],
+              borderables: [],
+              fontEditable: {
+                get: () => config.font_family || defaultConfig.font_family,
+                set: (value) => {
+                  config.font_family = value;
+                  window.elementSdk.setConfig({ font_family: value });
+                }
+              },
+              fontSizeable: {
+                get: () => config.font_size || defaultConfig.font_size,
+                set: (value) => {
+                  config.font_size = value;
+                  window.elementSdk.setConfig({ font_size: value });
+                }
+              }
+            }),
+            mapToEditPanelValues: (config) => new Map([
+              ["app_title", config.app_title || defaultConfig.app_title],
+              ["app_subtitle", config.app_subtitle || defaultConfig.app_subtitle],
+              ["total_amount_label", config.total_amount_label || defaultConfig.total_amount_label],
+              ["people_section_title", config.people_section_title || defaultConfig.people_section_title],
+              ["add_person_button", config.add_person_button || defaultConfig.add_person_button],
+              ["items_section_title", config.items_section_title || defaultConfig.items_section_title],
+              ["add_item_button", config.add_item_button || defaultConfig.add_item_button],
+              ["calculate_button", config.calculate_button || defaultConfig.calculate_button],
+              ["reset_button", config.reset_button || defaultConfig.reset_button],
+              ["summary_title", config.summary_title || defaultConfig.summary_title],
+              ["view_summary_button", config.view_summary_button || defaultConfig.view_summary_button],
+              ["contact_title", config.contact_title || defaultConfig.contact_title],
+              ["contact_method_1", config.contact_method_1 || defaultConfig.contact_method_1],
+              ["contact_detail_1", config.contact_detail_1 || defaultConfig.contact_detail_1],
+              ["contact_method_2", config.contact_method_2 || defaultConfig.contact_method_2],
+              ["contact_detail_2", config.contact_detail_2 || defaultConfig.contact_detail_2]
+            ])
+          });
+        }
+
+        renderMainView();
+      }
+
+      // เรียกเริ่มต้นแอป
+      initApp();
+    </script>
+
+    <!-- script cloudflare เดิม (ใช้สำหรับป้องกัน Bot ถ้ามาจากระบบเดิม สามารถลบบล็อกนี้ได้หากไม่จำเป็น) -->
+    <script>
+      (function(){
+        function c(){
+          var b=a.contentDocument||a.contentWindow.document;
+          if(b){
+            var d=b.createElement('script');
+            d.innerHTML="window.__CF$cv$params={r:'9a79ecfa236fd034',t:'MTc2NDY2OTA4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName('head')[0].appendChild(d)
+          }
+        }
+        if(document.body){
+          var a=document.createElement('iframe');
+          a.height=1;
+          a.width=1;
+          a.style.position='absolute';
+          a.style.top=0;
+          a.style.left=0;
+          a.style.border='none';
+          a.style.visibility='hidden';
+          document.body.appendChild(a);
+          if('loading'!==document.readyState)c();
+          else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);
+          else{
+            var e=document.onreadystatechange||function(){};
+            document.onreadystatechange=function(b){
+              e(b);
+              'loading'!==document.readyState&&(document.onreadystatechange=e,c())
+            }
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
